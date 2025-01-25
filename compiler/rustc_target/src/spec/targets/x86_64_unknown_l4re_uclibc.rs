@@ -1,4 +1,4 @@
-use crate::spec::{PanicStrategy, Target, base};
+use crate::spec::{base, Cc, LinkerFlavor, PanicStrategy, Target};
 
 pub(crate) fn target() -> Target {
     let mut base = base::l4re::opts();
@@ -6,6 +6,9 @@ pub(crate) fn target() -> Target {
     base.plt_by_default = false;
     base.max_atomic_width = Some(64);
     base.panic_strategy = PanicStrategy::Abort;
+    let extra_link_args = &["-zmax-page-size=0x1000","-zcommon-page-size=0x1000"];
+    base.add_pre_link_args(LinkerFlavor::Unix(Cc::Yes), extra_link_args);
+    base.add_pre_link_args(LinkerFlavor::Unix(Cc::No), extra_link_args);
 
     Target {
         llvm_target: "x86_64-unknown-l4re-uclibc".into(),

@@ -34,6 +34,10 @@ pub mod net {
             unimpl!();
         }
 
+        pub fn connect(&self, addr: &SocketAddr) -> io::Result<()> {
+            unimpl!();
+        }
+
         pub fn connect_timeout(&self, _: &SocketAddr, _: Duration) -> io::Result<()> {
             unimpl!();
         }
@@ -50,7 +54,19 @@ pub mod net {
             unimpl!();
         }
 
+        fn recv_with_flags(
+            &self,
+            mut buf: BorrowedCursor<'_>,
+            flags: libc::c_int,
+        ) -> io::Result<()> {
+            unimpl!();
+        }
+
         pub fn read(&self, _: &mut [u8]) -> io::Result<usize> {
+            unimpl!();
+        }
+
+        pub fn peek(&self, _: &mut [u8]) -> io::Result<usize> {
             unimpl!();
         }
 
@@ -66,7 +82,11 @@ pub mod net {
             false
         }
 
-        pub fn peek(&self, _: &mut [u8]) -> io::Result<usize> {
+        fn recv_from_with_flags(
+            &self,
+            buf: &mut [u8],
+            flags: libc::c_int,
+        ) -> io::Result<(usize, SocketAddr)> {
             unimpl!();
         }
 

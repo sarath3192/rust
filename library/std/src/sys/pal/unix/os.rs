@@ -131,7 +131,7 @@ pub fn error_string(errno: i32) -> String {
     let p = buf.as_mut_ptr();
     unsafe {
         if strerror_r(errno as c_int, p, buf.len()) < 0 {
-            panic!("strerror_r failure");
+            panic!("strerror_r failure. errno: {errno}, p: {:?}, buf: {:?}", p, buf);
         }
 
         let p = p as *const _;

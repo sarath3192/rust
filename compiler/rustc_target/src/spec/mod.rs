@@ -320,6 +320,8 @@ impl LinkerFlavor {
 
         // GCC/Clang can have an optional target prefix.
         if stem == "emcc"
+            || stem == "cc"
+            || stem.ends_with("-cc")
             || stem == "gcc"
             || stem.ends_with("-gcc")
             || stem == "g++"
@@ -1768,6 +1770,7 @@ supported_targets! {
 
     ("avr-unknown-gnu-atmega328", avr_unknown_gnu_atmega328),
 
+    ("aarch64-unknown-l4re-uclibc", aarch64_unknown_l4re_uclibc),
     ("x86_64-unknown-l4re-uclibc", x86_64_unknown_l4re_uclibc),
 
     ("aarch64-unknown-redox", aarch64_unknown_redox),

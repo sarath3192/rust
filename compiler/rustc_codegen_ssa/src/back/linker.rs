@@ -136,9 +136,6 @@ pub(crate) fn get_linker<'a>(
     // to the linker args construction.
     assert!(cmd.get_args().is_empty() || sess.target.vendor == "uwp");
     match flavor {
-        LinkerFlavor::Unix(Cc::No) if sess.target.os == "l4re" => {
-            Box::new(L4Bender::new(cmd, sess)) as Box<dyn Linker>
-        }
         LinkerFlavor::Unix(Cc::No) if sess.target.os == "aix" => {
             Box::new(AixLinker::new(cmd, sess)) as Box<dyn Linker>
         }
@@ -277,7 +274,6 @@ generate_arg_methods! {
     MsvcLinker<'_>
     EmLinker<'_>
     WasmLd<'_>
-    L4Bender<'_>
     AixLinker<'_>
     LlbcLinker<'_>
     PtxLinker<'_>
@@ -667,19 +663,20 @@ impl<'a> Linker for GccLinker<'a> {
         // eliminate the metadata. If we're building an executable, however,
         // --gc-sections drops the size of hello world from 1.8MB to 597K, a 67%
         // reduction.
-        } else if (self.is_gnu || self.sess.target.is_like_wasm) && !keep_metadata {
+        } else if (self.is_gnu || self.sess.target.is_like_wasm || self.sess.target.os == "l4re")
+            && !keep_metadata {
             self.link_arg("--gc-sections");
         }
     }
 
     fn no_gc_sections(&mut self) {
-        if self.is_gnu || self.sess.target.is_like_wasm {
+        if self.is_gnu || self.sess.target.is_like_wasm || self.sess.target.os == "l4re" {
             self.link_arg("--no-gc-sections");
         }
     }
 
     fn optimize(&mut self) {
-        if !self.is_gnu && !self.sess.target.is_like_wasm {
+        if !self.is_gnu && !self.sess.target.is_like_wasm && self.sess.target.os != "l4re" {
             return;
         }
 
@@ -1457,131 +1454,6 @@ impl<'a> WasmLd<'a> {
             config::OptLevel::Size | config::OptLevel::SizeMin => "O2",
         };
         self.link_arg(&format!("--lto-{opt_level}"));
-    }
-}
-
-/// Linker shepherd script for L4Re (Fiasco)
-struct L4Bender<'a> {
-    cmd: Command,
-    sess: &'a Session,
-    hinted_static: bool,
-}
-
-impl<'a> Linker for L4Bender<'a> {
-    fn cmd(&mut self) -> &mut Command {
-        &mut self.cmd
-    }
-
-    fn set_output_kind(
-        &mut self,
-        _output_kind: LinkOutputKind,
-        _crate_type: CrateType,
-        _out_filename: &Path,
-    ) {
-    }
-
-    fn link_staticlib_by_name(&mut self, name: &str, _verbatim: bool, whole_archive: bool) {
-        self.hint_static();
-        if !whole_archive {
-            self.link_arg(format!("-PC{name}"));
-        } else {
-            self.link_arg("--whole-archive")
-                .link_or_cc_arg(format!("-l{name}"))
-                .link_arg("--no-whole-archive");
-        }
-    }
-
-    fn link_staticlib_by_path(&mut self, path: &Path, whole_archive: bool) {
-        self.hint_static();
-        if !whole_archive {
-            self.link_or_cc_arg(path);
-        } else {
-            self.link_arg("--whole-archive").link_or_cc_arg(path).link_arg("--no-whole-archive");
-        }
-    }
-
-    fn full_relro(&mut self) {
-        self.link_args(&["-z", "relro", "-z", "now"]);
-    }
-
-    fn partial_relro(&mut self) {
-        self.link_args(&["-z", "relro"]);
-    }
-
-    fn no_relro(&mut self) {
-        self.link_args(&["-z", "norelro"]);
-    }
-
-    fn gc_sections(&mut self, keep_metadata: bool) {
-        if !keep_metadata {
-            self.link_arg("--gc-sections");
-        }
-    }
-
-    fn no_gc_sections(&mut self) {
-        self.link_arg("--no-gc-sections");
-    }
-
-    fn optimize(&mut self) {
-        // GNU-style linkers support optimization with -O. GNU ld doesn't
-        // need a numeric argument, but other linkers do.
-        if self.sess.opts.optimize == config::OptLevel::Default
-            || self.sess.opts.optimize == config::OptLevel::Aggressive
-        {
-            self.link_arg("-O1");
-        }
-    }
-
-    fn pgo_gen(&mut self) {}
-
-    fn debuginfo(&mut self, strip: Strip, _: &[PathBuf]) {
-        match strip {
-            Strip::None => {}
-            Strip::Debuginfo => {
-                self.link_arg("--strip-debug");
-            }
-            Strip::Symbols => {
-                self.link_arg("--strip-all");
-            }
-        }
-    }
-
-    fn no_default_libraries(&mut self) {
-        self.cc_arg("-nostdlib");
-    }
-
-    fn export_symbols(&mut self, _: &Path, _: CrateType, _: &[String]) {
-        // ToDo, not implemented, copy from GCC
-        self.sess.dcx().emit_warn(errors::L4BenderExportingSymbolsUnimplemented);
-    }
-
-    fn subsystem(&mut self, subsystem: &str) {
-        self.link_arg(&format!("--subsystem {subsystem}"));
-    }
-
-    fn reset_per_library_state(&mut self) {
-        self.hint_static(); // Reset to default before returning the composed command line.
-    }
-
-    fn linker_plugin_lto(&mut self) {}
-
-    fn control_flow_guard(&mut self) {}
-
-    fn ehcont_guard(&mut self) {}
-
-    fn no_crt_objects(&mut self) {}
-}
-
-impl<'a> L4Bender<'a> {
-    fn new(cmd: Command, sess: &'a Session) -> L4Bender<'a> {
-        L4Bender { cmd, sess, hinted_static: false }
-    }
-
-    fn hint_static(&mut self) {
-        if !self.hinted_static {
-            self.link_or_cc_arg("-static");
-            self.hinted_static = true;
-        }
     }
 }
 

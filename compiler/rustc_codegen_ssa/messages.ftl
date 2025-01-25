@@ -1,5 +1,3 @@
-codegen_ssa_L4Bender_exporting_symbols_unimplemented = exporting symbols not implemented yet for L4Bender
-
 codegen_ssa_add_native_library = failed to add native library {$library_path}: {$error}
 
 codegen_ssa_aix_strip_not_used = using host's `strip` binary to cross-compile to AIX which is not guaranteed to work
